@@ -1,0 +1,93 @@
+{% from "partials/macros.html" import cell %}
+  <div class="verdict {{ r.overall | status_class }}">
+    <div>
+      <div class="verdict-label">Overall result</div>
+      <div class="verdict-value">{{ r.overall }}</div>
+      <div class="verdict-docs mono small">{{ r.po_no or '—' }} · {{ r.grn_no or 'no GRN' }} · {{ r.invoice_no or 'no invoice' }}</div>
+    </div>
+    <div class="counts">
+      <div class="count bad"><b>{{ r.counts.FAIL }}</b><span>Mismatches</span></div>
+      <div class="count warn"><b>{{ r.counts.WARN }}</b><span>Warnings</span></div>
+      <div class="count ok"><b>{{ r.counts.PASS }}</b><span>Matched</span></div>
+    </div>
+    <div class="verdict-actions">
+      {% if run_id %}
+      <a class="btn btn-sm" href="{{ url_for('main.export', run_id=run_id) }}">Export to Excel</a>
+      <a class="btn btn-sm btn-ghost" href="{{ url_for('main.history_view', run_id=run_id) }}" target="_blank">Printable report</a>
+      {% endif %}
+      {% if pv and pv.voucher %}
+      <a class="btn btn-sm btn-pay" href="{{ url_for('vouchers.view', voucher_id=pv.voucher.id) }}">View payment voucher {{ pv.voucher.voucher_no }}</a>
+      {% elif pv and pv.payable %}
+      <form method="post" action="{{ url_for('vouchers.create') }}" class="inline-form">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <input type="hidden" name="run_id" value="{{ run_id }}">
+        <button class="btn btn-sm btn-pay" type="submit">Create payment voucher</button>
+      </form>
+      {% elif pv and pv.paid %}
+      <span class="small muted pv-note">Already paid: {% for p in pv.paid %}{{ p.invoice_no }} on <a href="{{ url_for('vouchers.view', voucher_id=p.id) }}">{{ p.voucher_no }}</a>{{ ', ' if not loop.last }}{% endfor %}</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="filter-bar small">
+    <span>Show:</span>
+    <label><input type="checkbox" class="flt" value="FAIL" checked> Mismatches</label>
+    <label><input type="checkbox" class="flt" value="WARN" checked> Warnings</label>
+    <label><input type="checkbox" class="flt" value="PASS" checked> Matched</label>
+    <label><input type="checkbox" class="flt" value="INFO" checked> Info</label>
+  </div>
+
+  <h3>Line item comparison</h3>
+  <div class="table-wrap">
+  <table class="tbl cmp">
+    <thead>
+      <tr><th rowspan="2">Line</th><th rowspan="2">Item</th>
+        <th colspan="3" class="grp">Quantity</th><th colspan="3" class="grp">Unit price</th><th colspan="3" class="grp">Line total</th>
+        <th rowspan="2">Status</th><th rowspan="2">Findings</th></tr>
+      <tr>
+        {% for _ in range(3) %}<th class="num c-po">PO</th><th class="num c-grn">GRN</th><th class="num c-inv">Inv</th>{% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+    {% for ln in r.line_checks %}
+      <tr class="row-{{ ln.status }}" data-status="{{ ln.status }}">
+        <td class="mono">{{ ln.line }}</td>
+        <td class="{{ 'cell-' ~ ln.cells.item if ln.cells.item }}"><b>{{ ln.item or '—' }}</b><div class="muted small">{{ ln.desc or '' }}</div></td>
+        {% for k in ['po_qty','grn_qty','inv_qty','po_price','grn_price','inv_price','po_total','grn_total','inv_total'] %}
+        <td class="num {{ 'cell-' ~ ln.cells[k] if ln.cells[k] }}">{{ cell(ln[k]) }}</td>
+        {% endfor %}
+        <td><span class="pill {{ ln.status | status_class }}">{{ ln.status }}</span></td>
+        <td class="small">{% for m in ln.issues %}<div>{{ m }}</div>{% else %}<span class="muted">All values agree</span>{% endfor %}
+          {% for src in ln.sources or [] %}<div class="muted mono">{{ src }}</div>{% endfor %}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="13" class="muted">No line items to compare.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+
+  {% if r.pairs %}
+  <h3>GRN ↔ Invoice pairs <span class="muted small pair-sub">each invoice bills one GRN · {{ r.grn_nos | length }} GRN(s), {{ r.invoice_nos | length }} invoice(s)
+    {%- if r.grn_nos | length == r.invoice_nos | length %} · <b class="t-ok">counts tally</b>{% else %} · <b class="t-bad">counts differ</b>{% endif %}</span></h3>
+  <div class="table-wrap">
+  <table class="tbl pairs">
+    <thead><tr><th class="c-grn">GRN</th><th>GRN date</th><th class="num">Received value</th>
+      <th class="c-inv">Invoice</th><th>Invoice date</th><th class="num">Invoiced value</th><th>Pair result</th><th>Findings</th></tr></thead>
+    <tbody>
+    {% for p in r.pairs %}
+      <tr class="row-{{ p.status }}" data-status="{{ p.status }}">
+        <td class="mono">{{ p.grn or '—' }}</td>
+        <td class="nowrap">{{ p.grn_date or '—' }}</td>
+        <td class="num">{{ cell(p.grn_value) }}</td>
+        <td class="mono">{{ p.invoice or '—' }}</td>
+        <td class="nowrap">{{ p.inv_date or '—' }}</td>
+        <td class="num {{ 'cell-' ~ p.status if p.inv_value is not none and p.grn_value is not none and p.inv_value > p.grn_value + 0.01 }}">{{ cell(p.inv_value) }}</td>
+        <td><span class="pill {{ p.status | status_class }}">{{ p.verdict }}</span></td>
+        <td class="small">{% for m in p.issues %}<div>{{ m }}</div>{% else %}<span class="muted">Invoice agrees with its GRN</span>{% endfor %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endif %}

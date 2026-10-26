@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}{{ v.voucher_no }}{% endblock %}
+{% block body_class %}print-body{% endblock %}
+{% block content %}
+<div class="print-bar no-print">
+  <div class="row-actions">
+    <a class="btn btn-ghost btn-sm" href="{{ url_for('vouchers.index') }}">← All vouchers</a>
+    <a class="btn btn-ghost btn-sm" href="{{ url_for('main.history_view', run_id=v.run_id) }}">Match report #{{ v.run_id }}</a>
+  </div>
+  <button class="btn btn-sm" onclick="window.print()">Print / Save as PDF</button>
+</div>
+
+<article class="paper doc-voucher">
+  <header class="paper-head">
+    <div>
+      <div class="paper-title">PAYMENT VOUCHER</div>
+      <div class="paper-no mono">{{ v.voucher_no }}</div>
+    </div>
+    <div class="paper-meta">
+      <div><span>Date</span><b>{{ v.created_at[:10] }}</b></div>
+      <div><span>Status</span><b class="stamp">{{ v.status }}</b></div>
+      <div><span>PO ref.</span><b class="mono">{{ v.po_no }}</b></div>
+    </div>
+  </header>
+
+  <section class="paper-parties">
+    <div>
+      <div class="paper-label">Pay to</div>
+      <div class="paper-strong">{{ v.supplier_name or v.supplier_code or '—' }}</div>
+      {% if v.supplier_code %}<div>Supplier code: {{ v.supplier_code }}</div>{% endif %}
+      {% if v.supplier_tin %}<div>TIN: {{ v.supplier_tin }}</div>{% endif %}
+    </div>
+    <div>
+      <div class="paper-label">Paid by</div>
+      <div class="paper-strong">{{ d.po.buyer or '—' }}</div>
+      {% if d.po.contract %}<div>Contract: {{ d.po.contract }}</div>{% endif %}
+      <div>Three-way match: run #{{ v.run_id }} · <b>{{ v.match_result }}</b></div>
+    </div>
+  </section>
+
+  <dl class="paper-extra">
+    <div><dt>Purchase order</dt><dd class="mono">{{ d.po.no }}</dd></div>
+    <div><dt>PO date</dt><dd>{{ d.po.date or '—' }}</dd></div>
+    <div><dt>PO value</dt><dd>{{ d.po.value | fmt('Total_Value') }}</dd></div>
+    <div><dt>Goods received</dt><dd class="mono">{{ d.grns | map(attribute='no') | join(', ') }}</dd></div>
+    <div><dt>Received value</dt><dd>{{ d.grns | map(attribute='value') | select('number') | sum | fmt('Total_Value') }}</dd></div>
+    <div><dt>Currency</dt><dd>{{ v.currency or '—' }}</dd></div>
+  </dl>
+
+  <table class="paper-lines">
+    <thead><tr><th>Invoice</th><th>Date</th><th>Supplier ref</th><th>GRN</th><th class="num">Supply value</th>
+      <th class="num">Discount</th><th class="num">VAT</th><th class="num">Less cess</th><th class="num">Net payable</th></tr></thead>
+    <tbody>
+    {% for i in d.invoices %}
+      <tr>
+        <td class="mono">{{ i.no }}</td><td>{{ i.date or '—' }}</td><td class="mono">{{ i.ref or '—' }}</td>
+        <td class="mono">{{ i.grn or '—' }}</td>
+        <td class="num">{{ i.supply | fmt('Total_Supply_Value') }}</td><td class="num">{{ i.discount | fmt('Discount') }}</td>
+        <td class="num">{{ i.vat | fmt('VAT_Amount') }}</td><td class="num">{{ i.cess | fmt('Less_Cess') }}</td>
+        <td class="num"><b>{{ i.net | fmt('Net_Total') }}</b></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <section class="paper-totals">
+    <div><span>Total supply value</span><b>{{ v.supply_total | fmt('Total_Supply_Value') }}</b></div>
+    <div><span>Discount (−)</span><b>{{ v.discount_total | fmt('Discount') }}</b></div>
+    <div><span>VAT</span><b>{{ v.vat_total | fmt('VAT_Amount') }}</b></div>
+    <div><span>Less cess (−)</span><b>{{ v.cess_total | fmt('Less_Cess') }}</b></div>
+    <div class="grand"><span>Net payable{% if v.currency %} ({{ v.currency }}){% endif %}</span><b>{{ v.net_payable | fmt('Net_Total') }}</b></div>
+  </section>
+  <p class="pv-words"><span class="paper-label">Amount in words</span>{{ amount_words }}</p>
+
+  {% if d.warnings %}
+  <section class="pv-warnings">
+    <div class="paper-label">Matched with warnings — reviewed before payment</div>
+    <ul>{% for w in d.warnings %}<li>{{ w }}</li>{% endfor %}</ul>
+  </section>
+  {% endif %}
+
+  <section class="pv-signs">
+    <div><span>{{ v.full_name or v.username }}</span>Prepared by</div>
+    <div><span></span>Checked by</div>
+    <div><span></span>Approved by</div>
+    <div><span></span>Received by (payee)</div>
+  </section>
+  <footer class="paper-foot small">Raised {{ v.created_at }} from a passed three-way match of {{ v.po_no }} ·
+    GRN {{ v.grn_nos }} · invoice {{ v.invoice_nos }}</footer>
+</article>
+{% endblock %}

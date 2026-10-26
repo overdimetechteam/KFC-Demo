@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Users{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Users</h1><p class="muted">Create accounts for colleagues. Each user has their own uploaded data and match history.</p></div></div>
+<section class="card">
+  <h2>Add user</h2>
+  <form method="post" class="inline-form">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="create">
+    <label class="field sm"><span>Username</span><input name="username" required></label>
+    <label class="field sm"><span>Full name</span><input name="full_name"></label>
+    <label class="field sm"><span>Password (min 8)</span><input name="password" type="password" minlength="8" required></label>
+    <label class="field sm"><span>Role</span><select name="role"><option value="user">User</option><option value="admin">Admin</option></select></label>
+    <button class="btn btn-primary" type="submit">Create</button>
+  </form>
+</section>
+<section class="card">
+  <div class="table-wrap">
+  <table class="tbl">
+    <thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Status</th><th>Last login</th><th>Reset password</th><th></th></tr></thead>
+    <tbody>
+    {% for u in users %}
+      <tr>
+        <td class="mono">{{ u.username }}</td><td>{{ u.full_name or '—' }}</td><td>{{ u.role }}</td>
+        <td><span class="pill {{ 'ok' if u.is_active else 'bad' }}">{{ 'Active' if u.is_active else 'Disabled' }}</span></td>
+        <td>{{ u.last_login or '—' }}</td>
+        <td>
+          <form method="post" class="inline-form tight">
+            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="reset"><input type="hidden" name="user_id" value="{{ u.id }}">
+            <input name="password" type="password" minlength="8" placeholder="New password" required>
+            <button class="btn btn-sm" type="submit">Set</button>
+          </form>
+        </td>
+        <td>
+          {% if u.id != g.user['id'] %}
+          <form method="post">
+            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <input type="hidden" name="user_id" value="{{ u.id }}">
+            <input type="hidden" name="action" value="{{ 'disable' if u.is_active else 'enable' }}">
+            <button class="btn btn-sm btn-ghost {{ 'danger' if u.is_active }}" type="submit">{{ 'Disable' if u.is_active else 'Enable' }}</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endblock %}

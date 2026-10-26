@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Data{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Source data</h1>
+    <p class="muted">Upload the Excel workbooks that hold your Purchase Orders, Supplier Invoices and Goods Received Notes.</p>
+  </div>
+  {% if has_data %}<a class="btn btn-primary" href="{{ url_for('main.match') }}">Open matching workspace →</a>{% endif %}
+</div>
+
+<section class="card">
+  <h2>Upload Excel files</h2>
+  <p class="muted small">Each document type needs a <b>header</b> sheet and a <b>detail</b> (line items) sheet. Sheets are detected automatically from their columns
+    (<code>PO_No</code>, <code>Invoice_No</code>, <code>GRN_No</code>, <code>Line_No</code>), so one combined workbook or three separate files both work.
+    Re-uploading a document type replaces it.</p>
+  <form method="post" action="{{ url_for('main.upload') }}" enctype="multipart/form-data" class="upload-grid" id="upload-form">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    {% for slot, title, hint, cls in [
+        ('po_file', 'Purchase Orders', 'PO_Header + PO_Detail', 'doc-po'),
+        ('invoice_file', 'Invoices', 'Invoice_Header + Invoice_Detail', 'doc-invoice'),
+        ('grn_file', 'GRNs', 'GRN_Header + GRN_Detail', 'doc-grn'),
+        ('combined_file', 'Combined workbook', 'All six sheets in one file', 'doc-all')] %}
+    <label class="drop {{ cls }}">
+      <input type="file" name="{{ slot }}" accept=".xlsx,.xlsm">
+      <span class="drop-title">{{ title }}</span>
+      <span class="drop-hint">{{ hint }}</span>
+      <span class="drop-file">No file chosen</span>
+    </label>
+    {% endfor %}
+    <div class="upload-actions">
+      <button class="btn btn-primary" type="submit">Upload &amp; parse</button>
+    </div>
+  </form>
+  <div class="row-actions">
+    <form method="post" action="{{ url_for('main.load_sample') }}">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <button class="btn btn-ghost btn-sm" type="submit">Load bundled sample data</button>
+    </form>
+    {% if has_data %}
+    <form method="post" action="{{ url_for('main.clear_data') }}" onsubmit="return confirm('Remove all uploaded data for your account?')">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <button class="btn btn-ghost btn-sm danger" type="submit">Clear uploaded data</button>
+    </form>
+    {% endif %}
+  </div>
+</section>
+
+<section class="summary-grid">
+  {% for s in summary %}
+  <div class="card stat doc-{{ s.doc }}">
+    <div class="stat-label">{{ s.label }}</div>
+    <div class="stat-value">{{ s.headers }}<small> documents</small></div>
+    <div class="muted small">{{ s.lines }} line items{% if s.loaded_at %} · loaded {{ s.loaded_at }}{% endif %}</div>
+    {% for part, src in s.sources.items() %}<div class="src small">{{ part }}: {{ src }}</div>{% endfor %}
+  </div>
+  {% endfor %}
+</section>
+
+{% if links %}
+<section class="card">
+  <div class="card-head">
+    <h2>Purchase orders and linked documents</h2>
+    <span class="muted small">Quick status compares each PO against all of its linked invoices and GRNs. Open a row to review it in detail,
+      or see the <a href="{{ url_for('main.links') }}">PO links</a> tab for every linked document.</span>
+  </div>
+  <div class="table-wrap">
+  <table class="tbl">
+    <thead><tr><th>PO</th><th>Date</th><th>Supplier</th><th class="num">Value</th><th>Invoices</th><th>GRNs</th><th>Quick status</th><th></th></tr></thead>
+    <tbody>
+    {% for r in links %}
+      <tr>
+        <td class="mono nowrap">{{ r.po }}</td>
+        <td class="nowrap">{{ r.date or '—' }}</td>
+        <td>{{ r.supplier or '—' }}</td>
+        <td class="num">{{ r.value | fmt('Total_Value') }}</td>
+        <td class="mono small">{{ r.invoices | join(', ') or '—' }}</td>
+        <td class="mono small">{{ r.grns | join(', ') or '—' }}</td>
+        <td><span class="pill {{ r.quick | status_class }}">{{ r.quick }}</span></td>
+        <td><a class="btn btn-sm" href="{{ url_for('main.match', po=r.po, invoice=r.invoices | join(','), grn=r.grns | join(',')) }}">Match</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+document.querySelectorAll('.drop input[type=file]').forEach(inp => {
+  inp.addEventListener('change', () => {
+    const lbl = inp.closest('.drop');
+    lbl.querySelector('.drop-file').textContent = inp.files.length ? inp.files[0].name : 'No file chosen';
+    lbl.classList.toggle('has-file', inp.files.length > 0);
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,59 @@
+{# Left panel of the preview modal: the selected PO / GRN / Invoice only, from its own fields #}
+{% set h = d.header %}
+{% set tag = {'po': 'PO', 'grn': 'GRN', 'invoice': 'INV'}[d.type] %}
+{% set qty_field = 'Received_Qty' if d.type == 'grn' else 'Qty' %}
+{% set totals = cfg.totals | select('in', h) | list %}
+<div class="rel">
+  <section class="rel-block doc-{{ d.type }}">
+    <div class="rel-head">
+      <span class="doc-tag">{{ tag }}</span><b>{{ cfg.label }}</b>
+      {% if h.Status %}<span class="pill info det-status">{{ h.Status }}</span>{% endif %}
+    </div>
+    <div class="det-id mono">{{ d.id }}</div>
+    <dl class="det-fields">
+      {% for c in header_cols if c != cfg.key and c not in totals and c != 'Status' %}
+      <div><dt>{{ label(c) }}</dt><dd>{{ h[c] | fmt(c) }}</dd></div>
+      {% endfor %}
+    </dl>
+  </section>
+
+  {% if totals %}
+  <section class="rel-block doc-{{ d.type }}">
+    <div class="rel-head"><b>Totals</b></div>
+    <dl class="det-totals">
+      {% for t in totals %}
+      <div class="{{ 'grand' if loop.last }}"><dt>{{ label(t) }}{% if t in ('Discount', 'Less_Cess') %} (−){% endif %}</dt><dd>{{ h[t] | fmt(t) }}</dd></div>
+      {% endfor %}
+    </dl>
+  </section>
+  {% endif %}
+
+  <section class="rel-block doc-{{ d.type }}">
+    <div class="rel-head"><b>Line items</b><span class="count-badge">{{ d.lines | length }}</span></div>
+    {% for ln in d.lines %}
+      <div class="rel-line">
+        <div class="rel-line-head">
+          <span class="mono muted">Line {{ ln.Line_No | fmt }}{% if ln.PO_Line_No is defined and ln.PO_Line_No is not none and ln.PO_Line_No != ln.Line_No %} · PO line {{ ln.PO_Line_No | fmt }}{% endif %}</span>
+          <b>{{ ln.Item_Code or '—' }}</b>
+          {% if ln.Description %}<span class="small muted">{{ ln.Description }}</span>{% endif %}
+        </div>
+        <dl class="rel-line-qty">
+          {% if ln.No_Of_Bags is not none %}<div><dt>Bags</dt><dd>{{ ln.No_Of_Bags | fmt('No_Of_Bags') }}</dd></div>{% endif %}
+          <div><dt>{{ label(qty_field) }}{% if ln.UOM %} ({{ ln.UOM }}){% endif %}</dt><dd>{{ ln[qty_field] | fmt(qty_field) }}</dd></div>
+          <div><dt>Unit price</dt><dd>{{ ln.Unit_Price | fmt('Unit_Price') }}</dd></div>
+          <div><dt>Line total</dt><dd>{{ ln.Line_Total | fmt('Line_Total') }}</dd></div>
+        </dl>
+      </div>
+    {% else %}
+      <p class="link-empty">No line items.</p>
+    {% endfor %}
+    {% if d.lines %}
+    {% set qty_vals = d.lines | map(attribute=qty_field) | select('number') | list %}
+    {% set total_vals = d.lines | map(attribute='Line_Total') | select('number') | list %}
+    <dl class="det-totals det-sum">
+      <div><dt>Total {{ label(qty_field) | lower }}</dt><dd>{{ qty_vals | sum | fmt(qty_field) }}</dd></div>
+      <div class="grand"><dt>Sum of line totals</dt><dd>{{ total_vals | sum | fmt('Line_Total') }}</dd></div>
+    </dl>
+    {% endif %}
+  </section>
+</div>

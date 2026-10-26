@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}History{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Match history</h1>
+    <p class="muted">Every comparison is saved with the exact result at the time it was run.{% if g.user['role'] == 'admin' %} Admins see all users.{% endif %}</p>
+  </div>
+</div>
+<section class="card">
+  {% if runs %}
+  <div class="table-wrap">
+  <table class="tbl">
+    <thead><tr><th>#</th><th>Run at</th>{% if g.user['role'] == 'admin' %}<th>User</th>{% endif %}<th>PO</th><th>Invoice</th><th>GRN</th><th>Result</th><th class="num">Fails</th><th class="num">Warns</th><th></th></tr></thead>
+    <tbody>
+    {% for r in runs %}
+      <tr>
+        <td class="mono">{{ r.id }}</td><td>{{ r.created_at }}</td>
+        {% if g.user['role'] == 'admin' %}<td>{{ r.username }}</td>{% endif %}
+        <td class="mono">{{ r.po_no or '—' }}</td><td class="mono small">{{ r.invoice_no or '—' }}</td><td class="mono">{{ r.grn_no or '—' }}</td>
+        <td><span class="pill {{ r.overall | status_class }}">{{ r.overall }}</span></td>
+        <td class="num">{{ r.fails }}</td><td class="num">{{ r.warns }}</td>
+        <td class="nowrap"><a class="btn btn-sm" href="{{ url_for('main.history_view', run_id=r.id) }}">View</a>
+          <a class="btn btn-sm btn-ghost" href="{{ url_for('main.export', run_id=r.id) }}">Excel</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="muted">No comparisons yet. Run one from the <a href="{{ url_for('main.match') }}">matching workspace</a>.</p>
+  {% endif %}
+</section>
+{% endblock %}

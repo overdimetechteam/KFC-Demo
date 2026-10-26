@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}PO Links{% endblock %}
+{% block main_class %}container wide{% endblock %}
+{% from "partials/macros.html" import bar %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>PO links</h1>
+    <p class="muted">Every Purchase Order with the Invoices and GRNs that reference it, and how much has been billed and received so far.</p>
+  </div>
+</div>
+
+<section class="link-stats">
+  {% for key, label, cls in [
+      ('all', 'Purchase orders', ''), ('multi-inv', 'Several invoices', 'doc-invoice'), ('multi-grn', 'Several GRNs', 'doc-grn'),
+      ('count-diff', 'Counts differ', 'bad'), ('no-inv', 'No invoice', 'warn'), ('no-grn', 'No GRN', 'bad'), ('mismatch', 'Mismatch', 'bad')] %}
+  <button type="button" class="link-stat {{ cls }}{{ ' active' if key == 'all' }}" data-filter="{{ key }}">
+    <b>{{ stats.pos if key == 'all' else stats[key] }}</b><span>{{ label }}</span>
+  </button>
+  {% endfor %}
+</section>
+
+<div class="link-toolbar">
+  <input type="search" id="link-search" placeholder="Search PO, supplier, invoice or GRN number…" aria-label="Search">
+  <span class="muted small" id="link-count"></span>
+</div>
+
+<section id="link-list">
+  {% for p in pos %}
+  <article class="card link-card" data-flags="{{ p.flags | join(' ') }} {{ 'mismatch' if p.quick == 'MISMATCH' }}"
+           data-search="{{ ([p.po, p.supplier] + p.invoices | map(attribute='id') | list + p.grns | map(attribute='id') | list + p.invoices | map(attribute='ref') | list) | select | join(' ') | lower }}">
+    <div class="link-po">
+      <div class="link-po-head">
+        <a class="mono link-po-no" href="{{ url_for('main.preview', doc='po', doc_id=p.po) }}?full=1" target="_blank" rel="noopener">{{ p.po }}</a>
+        <span class="pill {{ p.quick | status_class }}">{{ p.quick }}</span>
+      </div>
+      <div class="link-supplier">{{ p.supplier or '—' }}</div>
+      <dl class="link-meta">
+        <div><dt>PO date</dt><dd>{{ p.date or '—' }}</dd></div>
+        <div><dt>Delivery</dt><dd>{{ p.delivery_date or '—' }}</dd></div>
+        <div><dt>Value</dt><dd class="num">{{ p.value | fmt('Total_Value') }}</dd></div>
+        <div><dt>Status</dt><dd>{{ p.status or '—' }}</dd></div>
+      </dl>
+      {% set ni, ng = p.invoices | length, p.grns | length %}
+      <div class="tally {{ 'ok' if ni == ng and ni else 'bad' }}">{{ ng }} GRN{{ 's' if ng != 1 }} · {{ ni }} invoice{{ 's' if ni != 1 }}
+        — {{ 'counts tally' if ni == ng and ni else 'counts differ' }}</div>
+      <div class="small muted">{{ p.fails }} mismatch{{ 'es' if p.fails != 1 }} · {{ p.warns }} warning{{ 's' if p.warns != 1 }}</div>
+      <a class="btn btn-sm btn-primary" href="{{ url_for('main.match', po=p.po, invoice=p.invoices | map(attribute='id') | join(','), grn=p.grns | map(attribute='id') | join(',')) }}">Match all</a>
+    </div>
+
+    {% for doc, title, items, total, pct, verb in [
+        ('invoice', 'Invoices', p.invoices, p.invoiced, p.inv_pct, 'Invoiced'),
+        ('grn', 'GRNs', p.grns, p.received, p.grn_pct, 'Received')] %}
+    <div class="link-col doc-{{ doc }}">
+      <div class="link-col-head">
+        <span class="doc-tag">{{ 'INV' if doc == 'invoice' else 'GRN' }}</span>
+        <b>{{ title }}</b><span class="count-badge">{{ items | length }}</span>
+      </div>
+      <div class="link-progress small">
+        {{ bar(pct) }}
+        <span>{{ verb }} <b>{{ total | fmt('Total_Value') }}</b> of {{ p.value | fmt('Total_Value') }}{% if pct is not none %} · {{ pct }}%{% endif %}</span>
+      </div>
+      {% if items %}
+      <table class="tbl tbl-compact link-docs">
+        <thead><tr><th>No.</th><th>Date</th>{% if doc == 'invoice' %}<th>Supplier ref</th>{% else %}<th>Warehouse</th>{% endif %}<th class="num">Lines</th><th class="num">Value</th><th>Status</th></tr></thead>
+        <tbody>
+        {% for d in items %}
+          <tr>
+            <td class="mono"><a href="{{ url_for('main.preview', doc=doc, doc_id=d.id) }}?full=1" target="_blank" rel="noopener" title="Open {{ d.id }}">{{ d.id }}</a></td>
+            <td class="nowrap">{{ d.date or '—' }}</td>
+            <td class="mono small">{{ (d.ref if doc == 'invoice' else d.warehouse) or '—' }}</td>
+            <td class="num">{{ d.lines }}</td>
+            <td class="num">{{ d.value | fmt('Total_Value') }}</td>
+            <td class="small">{{ d.status or '—' }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="link-empty">No {{ 'invoice' if doc == 'invoice' else 'GRN' }} references this PO.</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </article>
+  {% endfor %}
+  <p class="muted" id="link-none" hidden>No purchase orders match this filter.</p>
+</section>
+
+{% if orphans %}
+<section class="card">
+  <div class="card-head">
+    <h2>Documents with no matching PO <span class="count-badge">{{ orphans | length }}</span></h2>
+    <span class="muted small">These invoices and GRNs quote a PO number that isn't in the uploaded PO data.</span>
+  </div>
+  <div class="table-wrap">
+  <table class="tbl">
+    <thead><tr><th>Type</th><th>No.</th><th>Quotes PO</th><th>Date</th><th class="num">Value</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for d in orphans %}
+      <tr>
+        <td><span class="doc-tag tag-{{ d.doc }}">{{ 'INV' if d.doc == 'invoice' else 'GRN' }}</span></td>
+        <td class="mono"><a href="{{ url_for('main.preview', doc=d.doc, doc_id=d.id) }}?full=1" target="_blank" rel="noopener">{{ d.id }}</a></td>
+        <td class="mono">{{ d.po_no or '—' }}</td>
+        <td>{{ d.date or '—' }}</td>
+        <td class="num">{{ d.value | fmt('Total_Value') }}</td>
+        <td>{{ d.status or '—' }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const cards = [...document.querySelectorAll('.link-card')];
+  const search = document.getElementById('link-search');
+  const stats = [...document.querySelectorAll('.link-stat')];
+  let filter = 'all';
+  try { filter = sessionStorage.getItem('twm-link-filter') || 'all'; } catch (e) { /* storage unavailable */ }
+  if (!stats.some(b => b.dataset.filter === filter)) filter = 'all';
+
+  function apply() {
+    const q = search.value.trim().toLowerCase();
+    let shown = 0;
+    cards.forEach(c => {
+      const ok = (filter === 'all' || c.dataset.flags.split(' ').includes(filter)) && (!q || c.dataset.search.includes(q));
+      c.hidden = !ok;
+      if (ok) shown++;
+    });
+    stats.forEach(b => b.classList.toggle('active', b.dataset.filter === filter));
+    document.getElementById('link-count').textContent = `Showing ${shown} of ${cards.length} purchase orders`;
+    document.getElementById('link-none').hidden = shown > 0;
+  }
+  stats.forEach(b => b.addEventListener('click', () => {
+    filter = b.dataset.filter === filter ? 'all' : b.dataset.filter;
+    try { sessionStorage.setItem('twm-link-filter', filter); } catch (e) { /* storage unavailable */ }
+    apply();
+  }));
+  search.addEventListener('input', apply);
+  apply();
+})();
+</script>
+{% endblock %}

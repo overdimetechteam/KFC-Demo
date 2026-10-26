@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Match{% endblock %}
+{% block main_class %}container wide{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Three-way matching</h1>
+    <p class="muted">Pick a Purchase Order — every Invoice and GRN linked to it is selected and compared together. Untick any you want to leave out.</p>
+  </div>
+  <details class="settings">
+    <summary class="btn btn-ghost btn-sm">Tolerances</summary>
+    <div class="settings-body">
+      <label class="field sm"><span>Quantity tolerance %</span><input type="number" step="0.1" min="0" id="s-qty_tolerance_pct" value="{{ defaults.qty_tolerance_pct }}"></label>
+      <label class="field sm"><span>Price tolerance %</span><input type="number" step="0.1" min="0" id="s-price_tolerance_pct" value="{{ defaults.price_tolerance_pct }}"></label>
+      <label class="field sm"><span>Amount rounding tolerance</span><input type="number" step="0.01" min="0" id="s-amount_tolerance" value="{{ defaults.amount_tolerance }}"></label>
+      <label class="field sm"><span>VAT rate %</span><input type="number" step="0.01" min="0" id="s-vat_rate_pct" value="{{ defaults.vat_rate_pct }}"></label>
+    </div>
+  </details>
+</div>
+
+<section class="card results" id="result-card" hidden></section>
+
+<div class="docs-grid" id="docs"
+     data-preselect-po="{{ preselect.po }}" data-preselect-invoice="{{ preselect.invoice }}" data-preselect-grn="{{ preselect.grn }}">
+  {% for doc, title in [('po', 'Purchase Order'), ('grn', 'Goods Received Note'), ('invoice', 'Supplier Invoice')] %}
+  <section class="card doc-panel doc-{{ doc }}" data-doc="{{ doc }}">
+    <div class="doc-panel-head">
+      <span class="doc-tag">{{ {'po':'PO','invoice':'INV','grn':'GRN'}[doc] }}</span>
+      <h2>{{ title }}</h2>
+    </div>
+    <div class="picker">
+      {% if doc == 'po' %}
+      <select id="sel-po" aria-label="Select {{ title }}"><option value="">Loading…</option></select>
+      {% else %}
+      <div class="multi-pick" id="pick-{{ doc }}" role="group" aria-label="Select one or more {{ title }}s"><div class="pick-empty">Loading…</div></div>
+      {% endif %}
+      <button class="btn btn-sm" type="button" data-preview="{{ doc }}" disabled>Preview</button>
+    </div>
+    <p class="hint small" id="hint-{{ doc }}"></p>
+    {% if doc != 'po' %}<div class="doc-tabs" id="tabs-{{ doc }}" hidden></div>{% endif %}
+
+    <div class="fields">
+      {% for f in columns[doc].header %}
+      <label class="field sm" data-field="{{ f }}">
+        <span>{{ label(f) }}</span>
+        <input type="text" id="f-{{ doc }}-{{ f }}" data-field="{{ f }}" readonly placeholder="—">
+      </label>
+      {% endfor %}
+    </div>
+
+    <div class="lines">
+      <div class="lines-head small">Line items <span class="muted" id="count-{{ doc }}"></span></div>
+      <div class="table-wrap">
+        <table class="tbl tbl-compact" id="lines-{{ doc }}">
+          <thead><tr>{% if doc != 'po' %}<th class="col-src" hidden>{{ 'Invoice' if doc == 'invoice' else 'GRN' }}</th>{% endif %}{% for c in columns[doc].detail if c not in ('PO_No','Description','UOM') %}<th class="{{ 'num' if c not in ('Item_Code',) }}">{{ label(c) }}</th>{% endfor %}</tr></thead>
+          <tbody><tr class="empty"><td colspan="12">Select a document</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+  {% endfor %}
+</div>
+
+<div class="action-bar">
+  <button class="btn btn-primary btn-lg" id="btn-compare" type="button" disabled>Compare documents</button>
+  <button class="btn btn-ghost" id="btn-reset" type="button">Reset</button>
+  <span class="muted small" id="compare-status"></span>
+</div>
+
+<section class="card results" id="result-checks" hidden></section>
+
+<dialog id="preview-dialog" class="preview-dialog preview-large" aria-labelledby="preview-title">
+  <div class="dialog-bar">
+    <strong id="preview-title">Preview</strong>
+    <div>
+      <a class="btn btn-sm" id="preview-open" target="_blank" rel="noopener">Open / print</a>
+      <button class="btn btn-sm btn-ghost" type="button" id="preview-close">Close</button>
+    </div>
+  </div>
+  <div class="preview-split">
+    <aside class="preview-related" id="preview-related" aria-label="Document details"></aside>
+    <div class="dialog-body" id="preview-body"></div>
+  </div>
+</dialog>
+{% endblock %}
+{% block scripts %}
+<script>
+  window.TWM = {
+    columns: {{ columns | tojson }},
+    urls: {
+      documents: "{{ url_for('main.api_documents') }}",
+      document: "{{ url_for('main.api_document', doc='__DOC__', doc_id='__ID__') }}",
+      compare: "{{ url_for('main.api_compare') }}",
+      preview: "{{ url_for('main.preview', doc='__DOC__', doc_id='__ID__') }}",
+      details: "{{ url_for('main.doc_details', doc='__DOC__', doc_id='__ID__') }}"
+    }
+  };
+</script>
+<script src="{{ url_for('static', filename='js/results.js') }}"></script>
+<script src="{{ url_for('static', filename='js/match.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% from "partials/macros.html" import cell %}
+  {% set hc_fail = r.header_checks | selectattr('status', 'equalto', 'FAIL') | list | length %}
+  {% set hc_warn = r.header_checks | selectattr('status', 'equalto', 'WARN') | list | length %}
+  <div class="checks-toggle-bar">
+    <h3>Header &amp; control checks</h3>
+    <button type="button" class="btn btn-sm checks-toggle" aria-expanded="false" aria-controls="checks-body">
+      <span class="checks-toggle-label">Show checks</span>
+      <span class="muted small">({{ r.header_checks | length }} checks{% if hc_fail %} · <b class="t-bad">{{ hc_fail }} mismatch{{ 'es' if hc_fail != 1 }}</b>{% endif %}{% if hc_warn %} · <b class="t-warn">{{ hc_warn }} warning{{ 's' if hc_warn != 1 }}</b>{% endif %})</span>
+    </button>
+  </div>
+  <div class="table-wrap checks-body" id="checks-body" hidden>
+  <table class="tbl checks">
+    <thead><tr><th>Area</th><th>Check</th><th class="c-po">PO</th><th class="c-grn">GRN</th><th class="c-inv">Invoice</th><th>Status</th><th>Finding</th></tr></thead>
+    <tbody>
+    {% for c in r.header_checks %}
+      <tr class="row-{{ c.status }}" data-status="{{ c.status }}">
+        <td class="muted small">{{ c.group }}</td>
+        <td>{{ c.check }}</td>
+        <td>{{ cell(c.po) }}</td>
+        <td>{{ cell(c.grn) }}</td>
+        <td>{{ cell(c.invoice) }}</td>
+        <td><span class="pill {{ c.status | status_class }}">{{ c.status }}</span></td>
+        <td class="small">{{ c.note }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="muted small">Tolerances used: quantity {{ r.settings.qty_tolerance_pct }}%, price {{ r.settings.price_tolerance_pct }}%,
+    amount ±{{ r.settings.amount_tolerance }}, VAT {{ r.settings.vat_rate_pct }}%.</p>

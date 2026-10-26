@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Vouchers{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Payment vouchers</h1>
+    <p class="muted">Raised from three-way matches that passed. Each invoice can be paid on one voucher only.{% if g.user['role'] == 'admin' %} Admins see all users.{% endif %}</p>
+  </div>
+</div>
+<section class="card">
+  {% if vouchers %}
+  <div class="table-wrap">
+  <table class="tbl">
+    <thead><tr><th>Voucher</th><th>Raised</th>{% if g.user['role'] == 'admin' %}<th>User</th>{% endif %}<th>PO</th><th>Pay to</th>
+      <th>GRNs</th><th>Invoices</th><th class="num">Net payable</th><th>Match</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+    {% for v in vouchers %}
+      <tr>
+        <td class="mono nowrap">{{ v.voucher_no }}</td><td class="nowrap">{{ v.created_at }}</td>
+        {% if g.user['role'] == 'admin' %}<td>{{ v.username }}</td>{% endif %}
+        <td class="mono">{{ v.po_no }}</td><td>{{ v.supplier_name or '—' }}</td>
+        <td class="mono small">{{ v.grn_nos }}</td><td class="mono small">{{ v.invoice_nos }}</td>
+        <td class="num nowrap">{{ v.net_payable | fmt('Net_Total') }}{% if v.currency %} <span class="muted small">{{ v.currency }}</span>{% endif %}</td>
+        <td><span class="pill {{ v.match_result | status_class }}">{{ v.match_result }}</span></td>
+        <td class="small">{{ v.status }}</td>
+        <td class="nowrap"><a class="btn btn-sm" href="{{ url_for('vouchers.view', voucher_id=v.id) }}">View</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="muted">No payment vouchers yet. Run a comparison in the <a href="{{ url_for('main.match') }}">matching workspace</a>;
+    when it passes, a <b>Create payment voucher</b> button appears next to the result.</p>
+  {% endif %}
+</section>
+{% endblock %}

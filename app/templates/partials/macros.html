@@ -1,0 +1,5 @@
+{% macro cell(v) %}{% if v is none %}<span class="muted">—</span>{% elif v is number %}{{ v | fmt }}{% else %}{{ v }}{% endif %}{% endmacro %}
+{% macro bar(pct) -%}
+  {%- set cls = 'none' if pct is none or pct == 0 else ('ok' if pct >= 99.95 and pct <= 100.05 else ('bad' if pct > 100 else 'warn')) -%}
+  <div class="bar bar-{{ cls }}" title="{{ '—' if pct is none else pct ~ '%' }}"><i style="width: {{ [pct or 0, 100] | min }}%"></i></div>
+{%- endmacro %}

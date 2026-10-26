@@ -1,0 +1,68 @@
+{# Paper-style rendering of a single PO / Invoice / GRN #}
+{% set h = d.header %}
+{% set key = cfg.key %}
+{% set skip = [key, cfg.date] + cfg.totals %}
+<article class="paper doc-{{ d.type }}">
+  <header class="paper-head">
+    <div>
+      <div class="paper-title">{{ cfg.title }}</div>
+      <div class="paper-no mono">{{ h[key] }}</div>
+    </div>
+    <div class="paper-meta">
+      <div><span>Date</span><b>{{ h[cfg.date] or '—' }}</b></div>
+      {% if h.Status %}<div><span>Status</span><b class="stamp">{{ h.Status }}</b></div>{% endif %}
+      {% if d.type != 'po' and h.PO_No %}<div><span>PO ref.</span><b class="mono">{{ h.PO_No }}</b></div>{% endif %}
+    </div>
+  </header>
+
+  <section class="paper-parties">
+    <div>
+      <div class="paper-label">{{ 'Received from' if d.type == 'grn' else 'Supplier' }}</div>
+      <div class="paper-strong">{{ h.Supplier_Name or h.Supplier_Code or '—' }}</div>
+      {% if h.Supplier_Code %}<div>Code: {{ h.Supplier_Code }}</div>{% endif %}
+      {% if h.Supplier_TIN %}<div>TIN: {{ h.Supplier_TIN }}</div>{% endif %}
+    </div>
+    <div>
+      {% if d.type == 'grn' %}
+        <div class="paper-label">Received at</div>
+        <div class="paper-strong">{{ h.Warehouse or '—' }}</div>
+        {% if h.Received_By %}<div>Received by: {{ h.Received_By }}</div>{% endif %}
+        {% if h.Dispatch_No %}<div>Dispatch no: {{ h.Dispatch_No }}</div>{% endif %}
+      {% else %}
+        <div class="paper-label">{{ 'Bill to' if d.type == 'invoice' else 'Buyer' }}</div>
+        <div class="paper-strong">{{ h.Buyer_Name or h.Purchaser_Name or '—' }}</div>
+        {% if h.Contract_No %}<div>Contract: {{ h.Contract_No }}</div>{% endif %}
+        {% if h.Supplier_Ref_No %}<div>Supplier ref: {{ h.Supplier_Ref_No }}</div>{% endif %}
+      {% endif %}
+    </div>
+  </section>
+
+  {% set shown = ['Supplier_Name','Supplier_Code','Supplier_TIN','Buyer_Name','Purchaser_Name','Contract_No','Supplier_Ref_No','Warehouse','Received_By','Dispatch_No','Status','PO_No'] %}
+  {% set extras = [] %}
+  {% for c in header_cols if c not in skip and c not in shown %}{% set _ = extras.append(c) %}{% endfor %}
+  {% if extras %}
+  <dl class="paper-extra">
+    {% for c in extras %}<div><dt>{{ label(c) }}</dt><dd>{{ h[c] | fmt(c) }}</dd></div>{% endfor %}
+  </dl>
+  {% endif %}
+
+  {% set lcols = line_cols | reject('equalto', 'PO_No') | list %}
+  <table class="paper-lines">
+    <thead><tr>{% for c in lcols %}<th class="{{ 'num' if c not in ('Item_Code','Description','UOM') }}">{{ label(c) }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for ln in d.lines %}
+      <tr>{% for c in lcols %}<td class="{{ 'num' if c not in ('Item_Code','Description','UOM') }}">{{ ln[c] | fmt(c) }}</td>{% endfor %}</tr>
+    {% else %}
+      <tr><td colspan="{{ lcols | length }}" class="muted">No line items</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <section class="paper-totals">
+    {% for t in cfg.totals if t in h %}
+      <div class="{{ 'grand' if loop.last }}"><span>{{ label(t) }}{% if t == 'Discount' or t == 'Less_Cess' %} (−){% endif %}</span><b>{{ h[t] | fmt(t) }}</b></div>
+    {% endfor %}
+    {% if h.Currency %}<div class="muted small">Currency: {{ h.Currency }}</div>{% endif %}
+  </section>
+  <footer class="paper-foot small">Rendered from uploaded data · {{ d.lines | length }} line(s)</footer>
+</article>

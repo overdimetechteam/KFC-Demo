@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Sign in{% endblock %}
+{% block body_class %}login-body{% endblock %}
+{% block main_class %}login-wrap{% endblock %}
+{% block content %}
+<div class="login-card">
+  <div class="login-brand">
+    <span class="brand-mark lg" aria-hidden="true"><i></i><i></i><i></i></span>
+    <div>
+      <h1>{{ app_name }}</h1>
+      <p>PO · GRN · Invoice reconciliation</p>
+    </div>
+  </div>
+  <form method="post" class="stack">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <label class="field">
+      <span>Username</span>
+      <input name="username" autocomplete="username" required autofocus value="{{ request.form.get('username', '') }}">
+    </label>
+    <label class="field">
+      <span>Password</span>
+      <input name="password" type="password" autocomplete="current-password" required>
+    </label>
+    <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+  </form>
+  
+</div>
+{% endblock %}

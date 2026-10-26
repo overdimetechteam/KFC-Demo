@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Match report #{{ run_id }}{% endblock %}
+{% block main_class %}container wide{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Match report #{{ run_id }}</h1>
+    <p class="muted">Run by {{ run.username }} on {{ run.created_at }}</p>
+  </div>
+  <div class="row-actions no-print">
+    <a class="btn btn-ghost btn-sm" href="{{ url_for('main.match', po=r.po_no or '', invoice=r.invoice_no or '', grn=r.grn_no or '') }}">Re-open in workspace</a>
+    <button class="btn btn-sm" onclick="window.print()">Print</button>
+  </div>
+</div>
+{% include "partials/results.html" %}
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/results.js') }}"></script>{% endblock %}
